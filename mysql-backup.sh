@@ -1,7 +1,9 @@
 #!/bin/bash
 ################################################################################
-## Kontrollkit
-## NAME: mt-backup-simple.sh
+## DATE: 2012-05-09
+## AUTHOR: Flo Schuessel
+## WEBSITE: https://github.com/staticsirupflo/mysql-tools
+## EMAIL: fs@iltisworld.de
 ## DATE: 2009-08-02
 ## AUTHOR: Matt Reid
 ## WEBSITE: http://kontrollsoft.com
