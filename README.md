@@ -6,7 +6,7 @@ Tools for administering daily task regarding MySQL.
 1) Clone repository
 -------------------
 
-git clone git@github.com:staticsirupflo/mysql-tools.git
+    git clone git@github.com:staticsirupflo/mysql-tools.git
 
 2) Copy config
 --------------
