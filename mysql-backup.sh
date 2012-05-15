@@ -39,9 +39,19 @@
 # Runs a backup for MySQL databases with given options
 ##################################################################################
 # Suggested CRONTAB entry:
-# 02 03 * * * * /usr/local/bin/mysql-backup.sh > /dev/null 2>&1
+# 02 03 * * * * /usr/local/bin/mysql-backup.sh /home/me/mysql-backup.cfg  > /dev/null 2>&1
 ##################################################################################
-source $(dirname $0)/mysql-backup.cfg
+if [ "$1" == "" ]
+    then
+    echo "No config filename passed."
+    exit 1
+fi
+if [ ! -f "$1" ]
+    then
+    echo "Config file could not be loaded."
+    exit 1
+fi
+source $(dirname $0)/$1
 ##################################################################################
 # Do not edit below here #                                                                                                      
 ##################################################################################
