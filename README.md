@@ -11,7 +11,11 @@ Tools for administering daily task regarding MySQL.
 2) Copy config
 --------------
 
-Copy mysql-backup.cfg.dist to mysql-backup.cfg and fill in your settings. The cfg has to reside in the same folder as the shell script.
+Copy mysql-backup.cfg.dist to mysql-backup.cfg and fill in your settings. The cfg file has to be passed as argument.
+
+3) Example
+
+    /usr/local/bin/mysql-backup.sh /home/me/mysql-backup.cfg
 
 Tested under
 ------------
