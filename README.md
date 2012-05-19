@@ -21,10 +21,9 @@ Tested under
 ------------
 
  * OSX
-
-Should work on *NIX as well.
+ * Linux (Debian tested)
  
-Notes
------
+Notes & credits
+---------------
 
 The mysql-backup.sh is heavily based on the work of Matt Reid from kontrollsoft. See comments in file.
