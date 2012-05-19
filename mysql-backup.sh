@@ -105,7 +105,7 @@ function backup {
     	START_SEC=`date +%s`
     	nice $BINARY --host=$HOST -u $USER --password="$PASS" $OPTIONS $DATABASES > $DUMP_ARCHIVE/$each-dump.${DT}.sql
     	DUMP_SEC=`date +%s`
-    	if [ "${COMPRESS}" = "1" ]; then
+    	if (( $COMPRESS == 1 )); then
     	    SQLFILE="$DUMP_ARCHIVE/$each-dump.${DT}.sql"
     	    STATE=`tail -n 1 ${SQLFILE} | awk -F "--" {'print $2'} | awk {'print $1 $2'}`
     	    if [ "${STATE}" = "Dumpcompleted" ]; then
@@ -116,7 +116,7 @@ function backup {
         		SIZE_byte=`du ${FILE} | cut -f 1 -d "/"`
         		if test -e ${FILE}; then
                     SIZE_KB=`du -k ${FILE} | cut -f 1 -d "/"`
-                    if (( "$EMAILENABLE" == "1" )); then
+                    if (( "$EMAILENABLE" == 1 )); then
                         mailer "SUCCESS" "${SIZE_KB} KB GZIP" "$each" "${FILE}"
                     fi
         		    STATUSID="1"
@@ -128,13 +128,13 @@ function backup {
         		    log "Dump compression of $each database took $COMPRESS_DELTA seconds to complete."
         		    log "Backup procedure complete at `date`"
         		else
-                    if (( "$EMAILENABLE" != "0" )); then
+                    if (( "$EMAILENABLE" != 0 )); then
         		        mailer "FAILED - File NULL" "${SIZE}" "$each" "n/a"
     		        fi
         		    STATUSID="3"
         		fi
     	    else 
-                if (( "$EMAILENABLE" != "0" )); then
+                if (( "$EMAILENABLE" != 0 )); then
                     mailer "FAILED - NOT COMPLETE" "NULL" "$each" "n/a"
                 fi
     		    STATUSID="2"
@@ -156,13 +156,13 @@ function backup {
     		    log "Data dump of $each database took $DUMP_DELTA seconds to complete."
     		    log "Backup procedure complete at `date`"
     		else
-                if (( "$EMAILENABLE" != "0" )); then
+                if (( "$EMAILENABLE" != 0 )); then
 		            mailer "FAILED - File NULL" "${SIZE}" "$each" "n/a"
 	            fi
     		    STATUSID="3"
     		fi
     	    else
-                if (( "$EMAILENABLE" != "0" )); then
+                if (( "$EMAILENABLE" != 0 )); then
     		        mailer "FAILED - NOT COMPLETE" "NULL" "$each" "n/a"
 		        fi
     		    STATUSID="2"
@@ -172,11 +172,11 @@ function backup {
 }
 
 function log {
-    $MESSAGE=$1
-    if (( $LOG == "1" )); then
+    MESSAGE=$1
+    if (( $LOG == 1 )); then
         echo $MESSAGE >> $BACKUP_LOG
     fi
-    if (( $SILENT == "0" )); then
+    if (( $SILENT == 0 )); then
         echo $MESSAGE
     fi
 }    
