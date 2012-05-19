@@ -41,13 +41,11 @@
 # Suggested CRONTAB entry:
 # 02 03 * * * * /usr/local/bin/mysql-backup.sh /home/me/mysql-backup.cfg  > /dev/null 2>&1
 ##################################################################################
-if [ "$1" == "" ]
-    then
+if [ "$1" == "" ]; then
     echo "No config filename passed."
     exit 1
 fi
-if [ ! -f "$1" ]
-    then
+if [ ! -f "$1" ]; then
     echo "Config file could not be loaded."
     exit 1
 fi
@@ -56,7 +54,7 @@ source $1
 # Do not edit below here #                                                                                                      
 ##################################################################################
 CHOST="$HOSTNAME"
-ASQLFILE="/tmp/mt-backup-simple"
+ASQLFILE="/tmp/mysql-backup-tmp"
 MTIME="+3"
 MONTHDAY=`date +'%d'` #looking for 01 for 1st day of month
 WEEKDAY=`date +'%u'` #looking for 7 for Sunday
@@ -77,17 +75,13 @@ function mailer {
     SIZE=$2
 	DB=$3
 	FILE=$4
-	if [ "$EMAILENABLE" = "1" ]; then
-        echo -e "$STATUS for $CLIENTNAME - $CHOST\nSize: $SIZE\nDatabase: $DB\nDate: $MAIL_DT\nFile: $FILE" | mail -s "MySQL Backup: $STATUS $MAIL_DT" $EMAIL
-	    echo "Emailed backup report to $EMAIL" >> $BACKUP_LOG
-	else
-	    echo "Email reporting not enabled. Not emailing report." >> $BACKUP_LOG
-	fi	
+    echo -e "$STATUS for $CLIENTNAME - $CHOST\nSize: $SIZE\nDatabase: $DB\nDate: $MAIL_DT\nFile: $FILE" | mail -s "MySQL Backup: $STATUS $MAIL_DT" $EMAIL
+    log "Emailed backup report to $EMAIL"
 }
 
 function backup {
-    echo "" >> $BACKUP_LOG
-    echo "Beginning daily backup procedure at `date`" >> $BACKUP_LOG
+    log ""
+    log "Beginning daily backup procedure at `date`"
     if [ "$MONTHDAY" = "01" ]; then
     	DUMP_ARCHIVE="${DUMP_ARCHIVE}/monthly"
     	test -d ${DUMP_ARCHIVE} || mkdir -p ${DUMP_ARCHIVE}
@@ -107,7 +101,7 @@ function backup {
     	if [ "$each" = "--all-databases" ]; then
     	    each="all-databases"
     	fi
-    	echo "Beginning backup of $each..." >> $BACKUP_LOG
+    	log "Beginning backup of $each..."
     	START_SEC=`date +%s`
     	nice $BINARY --host=$HOST -u $USER --password="$PASS" $OPTIONS $DATABASES > $DUMP_ARCHIVE/$each-dump.${DT}.sql
     	DUMP_SEC=`date +%s`
@@ -121,22 +115,28 @@ function backup {
         		SIZE=`du -h ${FILE} | cut -f 1 -d "/"`
         		SIZE_byte=`du ${FILE} | cut -f 1 -d "/"`
         		if test -e ${FILE}; then
-                            SIZE_KB=`du -k ${FILE} | cut -f 1 -d "/"`
-                            mailer "SUCCESS" "${SIZE_KB} KB GZIP" "$each" "${FILE}"
+                    SIZE_KB=`du -k ${FILE} | cut -f 1 -d "/"`
+                    if (( "$EMAILENABLE" == "1" )); then
+                        mailer "SUCCESS" "${SIZE_KB} KB GZIP" "$each" "${FILE}"
+                    fi
         		    STATUSID="1"
         		    #compute timing
         		    DUMP_DELTA=`expr $DUMP_SEC - $START_SEC`
         		    COMPRESS_DELTA=`expr $COMPRESS_SEC - $DUMP_SEC`
-        		    echo "Data File size: $SIZE_byte" >> $BACKUP_LOG
-        		    echo "Data dump of $each database took $DUMP_DELTA seconds to complete." >> $BACKUP_LOG
-        		    echo "Dump compression of $each database took $COMPRESS_DELTA seconds to complete." >> $BACKUP_LOG
-        		    echo "Backup procedure complete at `date`" >> $BACKUP_LOG
+        		    log "Data File size: $SIZE_byte"
+        		    log "Data dump of $each database took $DUMP_DELTA seconds to complete."
+        		    log "Dump compression of $each database took $COMPRESS_DELTA seconds to complete."
+        		    log "Backup procedure complete at `date`"
         		else
-        		    mailer "FAILED - File NULL" "${SIZE}" "$each" "n/a"
+                    if (( "$EMAILENABLE" != "0" )); then
+        		        mailer "FAILED - File NULL" "${SIZE}" "$each" "n/a"
+    		        fi
         		    STATUSID="3"
         		fi
     	    else 
-    		    mailer "FAILED - NOT COMPLETE" "NULL" "$each" "n/a"
+                if (( "$EMAILENABLE" != "0" )); then
+                    mailer "FAILED - NOT COMPLETE" "NULL" "$each" "n/a"
+                fi
     		    STATUSID="2"
     	    fi
     	else
@@ -152,19 +152,33 @@ function backup {
     		    STATUSID="1"
     		    #compute timing
     		    DUMP_DELTA=`expr $DUMP_SEC - $START_SEC`
-    		    echo "Data File size: $SIZE_byte" >> $BACKUP_LOG
-    		    echo "Data dump of $each database took $DUMP_DELTA seconds to complete." >> $BACKUP_LOG
-    		    echo "Backup procedure complete at `date`" >> $BACKUP_LOG
-    		else		    
-    		    mailer "FAILED - File NULL" "${SIZE}" "$each" "n/a"
+    		    log "Data File size: $SIZE_byte"
+    		    log "Data dump of $each database took $DUMP_DELTA seconds to complete."
+    		    log "Backup procedure complete at `date`"
+    		else
+                if (( "$EMAILENABLE" != "0" )); then
+		            mailer "FAILED - File NULL" "${SIZE}" "$each" "n/a"
+	            fi
     		    STATUSID="3"
     		fi
     	    else
-    		    mailer "FAILED - NOT COMPLETE" "NULL" "$each" "n/a"
+                if (( "$EMAILENABLE" != "0" )); then
+    		        mailer "FAILED - NOT COMPLETE" "NULL" "$each" "n/a"
+		        fi
     		    STATUSID="2"
     	    fi
     	fi
     done
+}
+
+function log {
+    $MESSAGE=$1
+    if (( $LOG == "1" )); then
+        echo $MESSAGE >> $BACKUP_LOG
+    fi
+    if (( $SILENT == "0" )); then
+        echo $MESSAGE
+    fi
 }    
 
 function check_server {
@@ -174,15 +188,14 @@ function check_server {
 	        backup  #run backup function
 	    else
             #database not running...probably on other node
-	        echo "" >> $BACKUP_LOG
-	        echo "Database not running on this node and localhost/127.0.0.1 was specified as HOST. Backup aborted." >> $BACKUP_LOG
-	        echo "" >> $BACKUP_LOG
+	        log ""
+	        log "Database not running on this node and localhost/127.0.0.1 was specified as HOST. Backup aborted."
+	        log ""
 	    fi
     else 
 	    backup
     fi
-    if (( $STATUSID == 1 ))
-        then
+    if (( $STATUSID == 1 )); then
         exit 0
     else 
         exit 1

@@ -1,4 +1,6 @@
 BACKUP_LOG="/var/log/mysql_backup.log" # Location of logfile to write to
+LOG="1" # Log actions: '0' enable, '1' disable
+SILENT="1" # Output enable: '0' enable output, '1' keep silent
 DUMP_ARCHIVE="/backups/mysql-backups" # Location for backup files, no trailing slash
 HOST="localhost" #database hostname or IP of server to backup
 USER="USER" #database username - must have access to databases being backed up
@@ -8,4 +10,4 @@ COMPRESS="1"  #"0" for no compression, "1" for compression
 OPTIONS="-c --opt --single-transaction --quick" 
 EMAIL="email@email.com" #Email address to send report to
 CLIENTNAME="client" # Client name
-EMAILENABLE="0" # enable email reporting. '0' to not email, '1' to email
+EMAILENABLE="0" # enable email reporting. '0' to not email, '1' to email, '2' to email on error only
