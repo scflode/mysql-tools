@@ -88,100 +88,104 @@ function mailer {
 function backup {
     echo "" >> $BACKUP_LOG
     echo "Beginning daily backup procedure at `date`" >> $BACKUP_LOG
-    
     if [ "$MONTHDAY" = "01" ]; then
     	DUMP_ARCHIVE="${DUMP_ARCHIVE}/monthly"
     	test -d ${DUMP_ARCHIVE} || mkdir -p ${DUMP_ARCHIVE}
     	MTIME="+90"
     fi
-    
     if [ "$WEEKDAY" = "7" ]; then
         DUMP_ARCHIVE="${DUMP_ARCHIVE}/weekly"
 	    test -d ${DUMP_ARCHIVE} || mkdir -p ${DUMP_ARCHIVE}
         MTIME="+30"
     fi
 
-    find $DUMP_ARCHIVE/*dump*sql -mtime $MTIME -exec rm {} \;
+    find $DUMP_ARCHIVE/*dump*sql -mtime $MTIME -exec rm {} \; > /dev/null 2>&1
     if [ "$COMPRESS" = "1" ]; then
-	    find $DUMP_ARCHIVE/*dump*gz -mtime $MTIME -exec rm {} \;
+	    find $DUMP_ARCHIVE/*dump*gz -mtime $MTIME -exec rm {} \; > /dev/null 2>&1
     fi
     for each in $DATABASES; do
-	if [ "$each" = "--all-databases" ]; then
-	    each="all-databases"
-	fi
-	echo "Beginning backup of $each..." >> $BACKUP_LOG
-	START_SEC=`date +%s`
-	nice $BINARY --host=$HOST -u $USER --password="$PASS" $OPTIONS $DATABASES > $DUMP_ARCHIVE/$each-dump.${DT}.sql
-	DUMP_SEC=`date +%s`
-	if [ "${COMPRESS}" = "1" ]; then
-	    SQLFILE="$DUMP_ARCHIVE/$each-dump.${DT}.sql"
-	    STATE=`tail -n 1 ${SQLFILE} | awk -F "--" {'print $2'} | awk {'print $1 $2'}`
-	    if [ "${STATE}" = "Dumpcompleted" ]; then
-		    nice $TAR_BINARY -czf $DUMP_ARCHIVE/$each-dump.${DT}.tar.gz $DUMP_ARCHIVE/$each-dump.${DT}.sql && rm -f $DUMP_ARCHIVE/$each-dump.${DT}.sql
-    		COMPRESS_SEC=`date +%s`
-    		FILE="$DUMP_ARCHIVE/$each-dump.${DT}.tar.gz"
+    	if [ "$each" = "--all-databases" ]; then
+    	    each="all-databases"
+    	fi
+    	echo "Beginning backup of $each..." >> $BACKUP_LOG
+    	START_SEC=`date +%s`
+    	nice $BINARY --host=$HOST -u $USER --password="$PASS" $OPTIONS $DATABASES > $DUMP_ARCHIVE/$each-dump.${DT}.sql
+    	DUMP_SEC=`date +%s`
+    	if [ "${COMPRESS}" = "1" ]; then
+    	    SQLFILE="$DUMP_ARCHIVE/$each-dump.${DT}.sql"
+    	    STATE=`tail -n 1 ${SQLFILE} | awk -F "--" {'print $2'} | awk {'print $1 $2'}`
+    	    if [ "${STATE}" = "Dumpcompleted" ]; then
+    		    nice $TAR_BINARY -czf $DUMP_ARCHIVE/$each-dump.${DT}.tar.gz $DUMP_ARCHIVE/$each-dump.${DT}.sql  > /dev/null 2>&1 && rm -f $DUMP_ARCHIVE/$each-dump.${DT}.sql
+        		COMPRESS_SEC=`date +%s`
+        		FILE="$DUMP_ARCHIVE/$each-dump.${DT}.tar.gz"
+        		SIZE=`du -h ${FILE} | cut -f 1 -d "/"`
+        		SIZE_byte=`du ${FILE} | cut -f 1 -d "/"`
+        		if test -e ${FILE}; then
+                            SIZE_KB=`du -k ${FILE} | cut -f 1 -d "/"`
+                            mailer "SUCCESS" "${SIZE_KB} KB GZIP" "$each" "${FILE}"
+        		    STATUSID="1"
+        		    #compute timing
+        		    DUMP_DELTA=`expr $DUMP_SEC - $START_SEC`
+        		    COMPRESS_DELTA=`expr $COMPRESS_SEC - $DUMP_SEC`
+        		    echo "Data File size: $SIZE_byte" >> $BACKUP_LOG
+        		    echo "Data dump of $each database took $DUMP_DELTA seconds to complete." >> $BACKUP_LOG
+        		    echo "Dump compression of $each database took $COMPRESS_DELTA seconds to complete." >> $BACKUP_LOG
+        		    echo "Backup procedure complete at `date`" >> $BACKUP_LOG
+        		else
+        		    mailer "FAILED - File NULL" "${SIZE}" "$each" "n/a"
+        		    STATUSID="3"
+        		fi
+    	    else 
+    		    mailer "FAILED - NOT COMPLETE" "NULL" "$each" "n/a"
+    		    STATUSID="2"
+    	    fi
+    	else
+            FILE="$DUMP_ARCHIVE/$each-dump.${DT}.sql"
+    	    STATE=`tail -n 1 ${FILE} | awk -F "--" {'print $2'} | awk {'print $1 $2'}`
+    	    echo "##### $STATE #####"
+                if [ "${STATE}" = "Dumpcompleted" ]; then
     		SIZE=`du -h ${FILE} | cut -f 1 -d "/"`
     		SIZE_byte=`du ${FILE} | cut -f 1 -d "/"`
     		if test -e ${FILE}; then
                         SIZE_KB=`du -k ${FILE} | cut -f 1 -d "/"`
-                        mailer "SUCCESS" "${SIZE_KB} KB GZIP" "$each" "${FILE}"
+                        mailer "SUCCESS" "${SIZE_KB} KB" "$each" "${FILE}"
     		    STATUSID="1"
     		    #compute timing
     		    DUMP_DELTA=`expr $DUMP_SEC - $START_SEC`
-    		    COMPRESS_DELTA=`expr $COMPRESS_SEC - $DUMP_SEC`
     		    echo "Data File size: $SIZE_byte" >> $BACKUP_LOG
     		    echo "Data dump of $each database took $DUMP_DELTA seconds to complete." >> $BACKUP_LOG
-    		    echo "Dump compression of $each database took $COMPRESS_DELTA seconds to complete." >> $BACKUP_LOG
     		    echo "Backup procedure complete at `date`" >> $BACKUP_LOG
-    		else
+    		else		    
     		    mailer "FAILED - File NULL" "${SIZE}" "$each" "n/a"
     		    STATUSID="3"
     		fi
-	    else 
-		    mailer "FAILED - NOT COMPLETE" "NULL" "$each" "n/a"
-		    STATUSID="2"
-	    fi
-	else
-        FILE="$DUMP_ARCHIVE/$each-dump.${DT}.sql"
-	    STATE=`tail -n 1 ${FILE} | awk -F "--" {'print $2'} | awk {'print $1 $2'}`
-	    echo "##### $STATE #####"
-            if [ "${STATE}" = "Dumpcompleted" ]; then
-		SIZE=`du -h ${FILE} | cut -f 1 -d "/"`
-		SIZE_byte=`du ${FILE} | cut -f 1 -d "/"`
-		if test -e ${FILE}; then
-                    SIZE_KB=`du -k ${FILE} | cut -f 1 -d "/"`
-                    mailer "SUCCESS" "${SIZE_KB} KB" "$each" "${FILE}"
-		    STATUSID="1"
-		    #compute timing
-		    DUMP_DELTA=`expr $DUMP_SEC - $START_SEC`
-		    echo "Data File size: $SIZE_byte" >> $BACKUP_LOG
-		    echo "Data dump of $each database took $DUMP_DELTA seconds to complete." >> $BACKUP_LOG
-		    echo "Backup procedure complete at `date`" >> $BACKUP_LOG
-		else		    
-		    mailer "FAILED - File NULL" "${SIZE}" "$each" "n/a"
-		    STATUSID="3"
-		fi
-	    else
-		    mailer "FAILED - NOT COMPLETE" "NULL" "$each" "n/a"
-		    STATUSID="2"
-	    fi
-	fi
+    	    else
+    		    mailer "FAILED - NOT COMPLETE" "NULL" "$each" "n/a"
+    		    STATUSID="2"
+    	    fi
+    	fi
     done
 }    
 
 function check_server {
     if [ "$HOST" = "localhost" ] || [ "$HOST" = "127.0.0.1" ]; then
-	pgrep mysql
-	if test $? -eq 0 ; then
-	    backup  #run backup function
-	else
-   #database not running...probably on other node
-	    echo "" >> $BACKUP_LOG
-	    echo "Database not running on this node and localhost/127.0.0.1 was specified as HOST. Backup aborted." >> $BACKUP_LOG
-	    echo "" >> $BACKUP_LOG
-	fi
+	    pgrep mysql > /dev/null 2>&1
+	    if test $? -eq 0 ; then
+	        backup  #run backup function
+	    else
+            #database not running...probably on other node
+	        echo "" >> $BACKUP_LOG
+	        echo "Database not running on this node and localhost/127.0.0.1 was specified as HOST. Backup aborted." >> $BACKUP_LOG
+	        echo "" >> $BACKUP_LOG
+	    fi
     else 
-	backup
+	    backup
+    fi
+    if (( $STATUSID == 1 ))
+        then
+        exit 0
+    else 
+        exit 1
     fi
 }
 
