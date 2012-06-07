@@ -27,3 +27,7 @@ Notes & credits
 ---------------
 
 The mysql-backup.sh is heavily based on the work of Matt Reid from kontrollsoft. See comments in file.
+
+TBD
+---
+ * Rework code a bit more.
